@@ -601,6 +601,7 @@ endif()
 
 if(WIN32)
     target_link_libraries(libslic3r PRIVATE Psapi.lib)
+    target_link_libraries(libslic3r PRIVATE OpenSSL::Crypto bcrypt)
 endif()
 
 if(SLIC3R_PROFILE)

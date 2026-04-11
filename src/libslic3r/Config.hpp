@@ -1635,15 +1635,20 @@ public:
 
     std::string serialize() const override
     {
-        for (const auto &kvp : *this->keys_map)
-            if (kvp.second == this->value)
-                return kvp.first;
-        return std::string();
+        if (this->keys_map != nullptr) {
+            for (const auto &kvp : *this->keys_map)
+                if (kvp.second == this->value)
+                    return kvp.first;
+        }
+        // Fallback: return raw integer as string when keys_map is not available
+        return std::to_string(this->value);
     }
 
     bool deserialize(const std::string &str, bool append = false) override
     {
         UNUSED(append);
+        if (this->keys_map == nullptr)
+            return false;
         auto it = this->keys_map->find(str);
         if (it == this->keys_map->end())
             return false;
@@ -1717,6 +1722,8 @@ public:
     {
         if (!append)
             this->values.clear();
+        if (this->keys_map == nullptr)
+            return false;
         std::istringstream is(str);
         std::string item_str;
         while (std::getline(is, item_str, ',')) {
@@ -1745,9 +1752,13 @@ private:
                 ss << "nil";
             else
                 throw ConfigurationError("Serializing NaN");
-        }
-        else {
-            for (const auto& kvp : *this->keys_map)
+        } else if (keys_map == nullptr) {
+            // Fallback when keys_map is not available (e.g. option cloned from
+            // a StaticPrintConfig where enum keys_map is not propagated).
+            // Write the raw integer value instead of the enum name.
+            ss << v;
+        } else {
+            for (const auto& kvp : *keys_map)
                 if (kvp.second == v)
                     ss << kvp.first;
         }

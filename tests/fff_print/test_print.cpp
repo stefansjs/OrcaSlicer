@@ -37,7 +37,7 @@ SCENARIO("Print: Skirt generation", "[Print]") {
             Slic3r::Test::init_and_process_print({TestMesh::cube_20x20x20}, print, {
             	{ "skirt_height", 	1 },
         		{ "skirt_distance", 1 },
-        		{ "skirts", 		2 }
+        		{ "skirt_loops", 	2 }
             });
             THEN("Skirt Extrusion collection has 2 loops in it") {
                 REQUIRE(print.skirt().items_count() == 2);
@@ -51,10 +51,10 @@ SCENARIO("Print: Changing number of solid surfaces does not cause all surfaces t
     GIVEN("sliced 20mm cube and config with top_solid_surfaces = 2 and bottom_solid_surfaces = 1") {
         Slic3r::DynamicPrintConfig config = Slic3r::DynamicPrintConfig::full_print_config();
 		config.set_deserialize_strict({
-			{ "top_solid_layers",		2 },
-			{ "bottom_solid_layers",	1 },
-			{ "layer_height",			0.25 }, // get a known number of layers
-			{ "first_layer_height",		0.25 }
+			{ "top_shell_layers",			2 },
+			{ "bottom_shell_layers",		1 },
+			{ "layer_height",				0.25 }, // get a known number of layers
+			{ "initial_layer_print_height",	0.25 }
 			});
         Slic3r::Print print;
         Slic3r::Model model;
@@ -74,8 +74,8 @@ SCENARIO("Print: Changing number of solid surfaces does not cause all surfaces t
         test_is_solid_infill(0,  0); // should be solid
         test_is_solid_infill(0, 79); // should be solid
         test_is_solid_infill(0, 78); // should be solid
-        WHEN("Model is re-sliced with top_solid_layers == 3") {
-			config.set("top_solid_layers", 3);
+        WHEN("Model is re-sliced with top_shell_layers == 3") {
+			config.set("top_shell_layers", 3);
 			print.apply(model, config);
             print.process();
             THEN("Print object does not have 0 solid bottom layers.") {
@@ -95,8 +95,8 @@ SCENARIO("Print: Brim generation", "[Print]") {
         WHEN("Brim is set to 3mm")  {
 	        Slic3r::Print print;
 	        Slic3r::Test::init_and_process_print({TestMesh::cube_20x20x20}, print, {
-	        	{ "first_layer_extrusion_width", 	1 },
-	        	{ "brim_width", 					3 }
+        	{ "initial_layer_line_width", 	1 },
+        	{ "brim_width", 				3 }
 	        });
             THEN("Brim Extrusion collection has 3 loops in it") {
                 size_t total_items = 0;
@@ -109,8 +109,8 @@ SCENARIO("Print: Brim generation", "[Print]") {
         WHEN("Brim is set to 6mm")  {
 	        Slic3r::Print print;
 	        Slic3r::Test::init_and_process_print({TestMesh::cube_20x20x20}, print, {
-	        	{ "first_layer_extrusion_width", 	1 },
-	        	{ "brim_width", 					6 }
+	        	{ "initial_layer_line_width", 	1 },
+	        	{ "brim_width", 				6 }
 	        });
             THEN("Brim Extrusion collection has 6 loops in it") {
                 size_t total_items = 0;
@@ -123,9 +123,8 @@ SCENARIO("Print: Brim generation", "[Print]") {
         WHEN("Brim is set to 6mm, extrusion width 0.5mm")  {
 	        Slic3r::Print print;
 	        Slic3r::Test::init_and_process_print({TestMesh::cube_20x20x20}, print, {
-	        	{ "first_layer_extrusion_width", 	1 },
-	        	{ "brim_width", 					6 },
-	        	{ "first_layer_extrusion_width", 	0.5 }
+	        	{ "initial_layer_line_width", 	0.5 },
+	        	{ "brim_width", 				6 }
 	        });
 			print.process();
             THEN("Brim Extrusion collection has 12 loops in it") {

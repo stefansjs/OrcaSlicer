@@ -148,7 +148,6 @@ Flow Flow::with_spacing(float new_spacing) const
 // Adjust the width / height of a rounded extrusion model to reach the prescribed cross section area while maintaining extrusion spacing.
 Flow Flow::with_cross_section(float area_new) const
 {
-    assert(! m_bridge);
     assert(m_width >= m_height);
 
     // Adjust for bridge_flow, maintain the extrusion spacing.
@@ -159,7 +158,7 @@ Flow Flow::with_cross_section(float area_new) const
         if (new_full_spacing > m_spacing) {
             // Filling up the spacing without an air gap. Grow the extrusion in height.
             float height = area_new / m_spacing;
-            return Flow(rounded_rectangle_extrusion_width_from_spacing(m_spacing, height), height, m_spacing, m_nozzle_diameter, false);
+            return Flow(rounded_rectangle_extrusion_width_from_spacing(m_spacing, height), height, m_spacing, m_nozzle_diameter, m_bridge);
         } else {
             return this->with_width(rounded_rectangle_extrusion_width_from_spacing(area / m_height, m_height));
         }
@@ -173,7 +172,7 @@ Flow Flow::with_cross_section(float area_new) const
         } else {
             // Create a rounded extrusion.
             auto dmr = float(sqrt(area_new / M_PI));
-            return Flow(dmr, dmr, m_spacing, m_nozzle_diameter, false);
+            return Flow(dmr, dmr, m_spacing, m_nozzle_diameter, m_bridge);
         }
     } else
         return *this;
@@ -200,7 +199,7 @@ float Flow::bridge_extrusion_spacing(float dmr)
 // This method returns extrusion volume per head move unit.
 double Flow::mm3_per_mm() const
 {
-    float res = m_bridge ?
+    float res = (m_bridge && std::abs(m_width - m_height) < EPSILON) ?
         // Area of a circle with dmr of this->width.
         float((m_width * m_width) * 0.25 * PI) :
         // Rectangle with semicircles at the ends. ~ h (w - 0.215 h)

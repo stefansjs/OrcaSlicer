@@ -6,14 +6,14 @@
 #include "test_data.hpp"
 
 #include <algorithm>
-#include <boost/regex.hpp>
+#include <regex>
 
 using namespace Slic3r;
 using namespace Slic3r::Test;
 
-boost::regex perimeters_regex("G1 X[-0-9.]* Y[-0-9.]* E[-0-9.]* ; perimeter");
-boost::regex infill_regex("G1 X[-0-9.]* Y[-0-9.]* E[-0-9.]* ; infill");
-boost::regex skirt_regex("G1 X[-0-9.]* Y[-0-9.]* E[-0-9.]* ; skirt");
+std::regex perimeters_regex("G1 X[-0-9.]* Y[-0-9.]* E[-0-9.]* ; perimeter");
+std::regex infill_regex("G1 X[-0-9.]* Y[-0-9.]* E[-0-9.]* ; infill");
+std::regex skirt_regex("G1 X[-0-9.]* Y[-0-9.]* E[-0-9.]* ; skirt");
 
 SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
     GIVEN("A default configuration and a print test object") {
@@ -22,8 +22,8 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
             Slic3r::Model model;
             Slic3r::Test::init_print({TestMesh::cube_20x20x20}, print, model, {
                 { "layer_height",					0.2 },
-                { "first_layer_height",				0.2 },
-                { "first_layer_extrusion_width",	0 },
+                { "initial_layer_print_height",				0.2 },
+                { "initial_layer_line_width",	0 },
                 { "gcode_comments",					true },
                 { "start_gcode",					"" }
                 });
@@ -61,16 +61,16 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
                 REQUIRE(gcode.find("; fill_density") != std::string::npos);
             }
             THEN("Infill is emitted.") {
-                boost::smatch has_match;
-                REQUIRE(boost::regex_search(gcode, has_match, infill_regex));
+                std::smatch has_match;
+                REQUIRE(std::regex_search(gcode, has_match, infill_regex));
             }
             THEN("Perimeters are emitted.") {
-				boost::smatch has_match;
-                REQUIRE(boost::regex_search(gcode, has_match, perimeters_regex));
+				std::smatch has_match;
+                REQUIRE(std::regex_search(gcode, has_match, perimeters_regex));
             }
             THEN("Skirt is emitted.") {
-                boost::smatch has_match;
-                REQUIRE(boost::regex_search(gcode, has_match, skirt_regex));
+                std::smatch has_match;
+                REQUIRE(std::regex_search(gcode, has_match, skirt_regex));
             }
             THEN("final Z height is 20mm") {
                 double final_z = 0.0;
@@ -86,8 +86,8 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
             Slic3r::Print print;
             Slic3r::Model model;
             Slic3r::Test::init_print({TestMesh::cube_20x20x20,TestMesh::cube_20x20x20}, print, model, {
-                { "first_layer_extrusion_width",    0 },
-                { "first_layer_height",             0.3 },
+                { "initial_layer_line_width",    0 },
+                { "initial_layer_print_height",             0.3 },
                 { "layer_height",                   0.2 },
                 { "support_material",               false },
                 { "raft_layers",                    0 },
@@ -100,16 +100,16 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
                 REQUIRE(gcode.size() > 0);
             }
             THEN("Infill is emitted.") {
-                boost::smatch has_match;
-                REQUIRE(boost::regex_search(gcode, has_match, infill_regex));
+                std::smatch has_match;
+                REQUIRE(std::regex_search(gcode, has_match, infill_regex));
             }
             THEN("Perimeters are emitted.") {
-                boost::smatch has_match;
-                REQUIRE(boost::regex_search(gcode, has_match, perimeters_regex));
+                std::smatch has_match;
+                REQUIRE(std::regex_search(gcode, has_match, perimeters_regex));
             }
             THEN("Skirt is emitted.") {
-                boost::smatch has_match;
-                REQUIRE(boost::regex_search(gcode, has_match, skirt_regex));
+                std::smatch has_match;
+                REQUIRE(std::regex_search(gcode, has_match, skirt_regex));
             }
             THEN("Between-object-gcode is emitted.") {
                 REQUIRE(gcode.find("; between-object-gcode") != std::string::npos);
@@ -154,7 +154,7 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
         }
         WHEN("the output is executed with support material") {
             std::string gcode = ::Test::slice({TestMesh::cube_20x20x20}, {
-                { "first_layer_extrusion_width",    0 },
+                { "initial_layer_line_width",       0 },
                 { "support_material",               true },
                 { "raft_layers",                    3 },
                 { "gcode_comments",                 true }
@@ -177,7 +177,7 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
         }
         WHEN("the output is executed with a separate first layer extrusion width") {
 			std::string gcode = ::Test::slice({ TestMesh::cube_20x20x20 }, {
-                { "first_layer_extrusion_width", "0.5" }
+                { "initial_layer_line_width", "0.5" }
                 });
             THEN("Some text output is generated.") {
                 REQUIRE(gcode.size() > 0);
@@ -205,7 +205,7 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
 			std::string gcode = ::Test::slice({ TestMesh::cube_20x20x20 }, {
 				{ "end_gcode",              "; Layer_num [layer_num]\n; Layer_z [layer_z]" },
                 { "layer_height",           0.1 },
-                { "first_layer_height",     0.1 }
+                { "initial_layer_print_height",     0.1 }
                 });
             THEN("layer_num and layer_z are processed in the end gcode") {
                 REQUIRE(gcode.find("; Layer_num 199") != std::string::npos);
@@ -245,7 +245,7 @@ SCENARIO( "PrintGCode basic functionality", "[PrintGCode]") {
                 { "gcode_comments",                 true },
                 { "layer_gcode",                    ";Layer:[layer_num] ([layer_z] mm)" },
                 { "layer_height",                   0.1 },
-                { "first_layer_height",             0.1 }
+                { "initial_layer_print_height",             0.1 }
                 });
 			// End of the 1st object.
             std::string token = ";Layer:199 ";

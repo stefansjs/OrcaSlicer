@@ -19,6 +19,7 @@
 #include "Fill/FillAdaptive.hpp"
 #include "Fill/FillLightning.hpp"
 #include "Format/STL.hpp"
+#include "ShortestPath.hpp"
 #include "format.hpp"
 
 #include <float.h>
@@ -71,6 +72,87 @@ using namespace std::literals;
 #endif
 
 namespace Slic3r {
+
+// Split perimeter paths at bridge polygon boundaries and assign erBridgeInfill
+// to the segments that overlap with bridge areas. This follows the same clipping
+// pattern used by the PerimeterGenerator for overhang detection: the loop geometry
+// stays continuous but different segments get different extrusion roles.
+static void split_paths_at_bridge_boundaries(ExtrusionPaths &paths, const Polygons &bridge_polys) {
+    ExtrusionPaths new_paths;
+    bool any_split = false;
+
+    for (ExtrusionPath &path : paths) {
+        if (!is_perimeter(path.role())) {
+            new_paths.push_back(std::move(path));
+            continue;
+        }
+
+        Polylines bridge_segments = intersection_pl(Polylines{path.polyline}, bridge_polys);
+
+        if (bridge_segments.empty()) {
+            // No overlap with bridge area - keep path as-is
+            new_paths.push_back(std::move(path));
+            continue;
+        }
+
+        Polylines normal_segments = diff_pl(Polylines{path.polyline}, bridge_polys);
+
+        if (normal_segments.empty()) {
+            // Entire path is within bridge area
+            path.set_extrusion_role(erBridgeInfill);
+            new_paths.push_back(std::move(path));
+            continue;
+        }
+
+        // Path crosses bridge boundary - split into bridge and non-bridge segments
+        any_split = true;
+
+        for (Polyline &pl : bridge_segments) {
+            if (pl.is_valid()) {
+                new_paths.emplace_back(erBridgeInfill, path.mm3_per_mm, path.width, path.height);
+                new_paths.back().polyline = std::move(pl);
+            }
+        }
+
+        for (Polyline &pl : normal_segments) {
+            if (pl.is_valid()) {
+                new_paths.emplace_back(path.role(), path.mm3_per_mm, path.width, path.height);
+                new_paths.back().polyline = std::move(pl);
+            }
+        }
+    }
+
+    if (any_split && !new_paths.empty()) {
+        // Clipper may return segments in arbitrary order; reorder by nearest
+        // neighbour to restore loop/path continuity.
+        chain_and_reorder_extrusion_paths(new_paths, &new_paths.front().first_point());
+    }
+
+    paths = std::move(new_paths);
+}
+
+static void promote_perimeters_to_bridges(ExtrusionEntityCollection &coll, const Polygons &bridge_polys) {
+    for (ExtrusionEntity *entity : coll.entities) {
+        if (entity->is_collection()) {
+            promote_perimeters_to_bridges(*static_cast<ExtrusionEntityCollection*>(entity), bridge_polys);
+        } else if (entity->is_loop()) {
+            ExtrusionLoop *loop = static_cast<ExtrusionLoop*>(entity);
+            split_paths_at_bridge_boundaries(loop->paths, bridge_polys);
+        } else if (ExtrusionMultiPath *mp = dynamic_cast<ExtrusionMultiPath*>(entity)) {
+            split_paths_at_bridge_boundaries(mp->paths, bridge_polys);
+        } else if (ExtrusionPath *path = dynamic_cast<ExtrusionPath*>(entity)) {
+            // Standalone paths cannot be split into multiple entities in-place.
+            // Promote the whole path if a majority overlaps with the bridge area.
+            if (is_perimeter(path->role())) {
+                Polylines bridge_segments = intersection_pl(Polylines{path->polyline}, bridge_polys);
+                double bridge_len = 0;
+                for (const Polyline &pl : bridge_segments) bridge_len += pl.length();
+                if (bridge_len > 0.5 * path->polyline.length())
+                    path->set_extrusion_role(erBridgeInfill);
+            }
+        }
+    }
+}
 
 // Constructor is called from the main thread, therefore all Model / ModelObject / ModelIntance data are valid.
 PrintObject::PrintObject(Print* print, ModelObject* model_object, const Transform3d& trafo, PrintInstances&& instances) :
@@ -1563,6 +1645,10 @@ void PrintObject::detect_surfaces_type()
                         }
                     }
                     top_surfs = std::move(new_surfaces);
+
+                    // ORCA: Also promote perimeters of the layer above to bridges if they are above the bridge below
+                    LayerRegion *layerm_up = m_layers[i + 1]->m_regions[region_id];
+                    promote_perimeters_to_bridges(layerm_up->perimeters, polygons_bridge);
                 }
             }
             );
@@ -3128,6 +3214,9 @@ void PrintObject::bridge_over_infill()
                         next_region->fill_surfaces.surfaces.clear();
                         next_region->fill_surfaces.append(keep_surfaces);
                         next_region->fill_surfaces.append(next_new_surfaces);
+
+                        // ORCA: Also promote perimeters of the layer above to bridges if they are above the bridge below
+                        promote_perimeters_to_bridges(next_region->perimeters, to_polygons(bridging_union));
                     } // end for next_layer->regions
                 } // end if next layer
             }

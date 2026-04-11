@@ -209,7 +209,8 @@ void init_print(std::vector<TriangleMesh> &&meshes, Slic3r::Print &print, Slic3r
 		object->add_volume(std::move(t));
 		object->add_instance();
 	}
-    arrange_objects(model, InfiniteBed{}, ArrangeParams{ scaled(min_object_distance(config))});
+    // Use a no-op callback since we're using InfiniteBed and don't care about bed bounds
+    arrange_objects(model, InfiniteBed{}, ArrangeParams{ scaled(min_object_distance(config))}, [](arrangement::ArrangePolygon&){});
 	for (ModelObject *mo : model.objects) {
         mo->ensure_on_bed();
 		print.auto_assign_extruders(mo);
@@ -282,7 +283,8 @@ void init_and_process_print(std::initializer_list<TriangleMesh> meshes, Slic3r::
 
 std::string gcode(Print & print)
 {
-	boost::filesystem::path temp = boost::filesystem::unique_path();
+	// Create a proper temp file path in the system temp directory
+	boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("orcaslicer_test_%%%%-%%%%-%%%%-%%%%.gcode");
     print.set_status_silent();
     print.process();
     print.export_gcode(temp.string(), nullptr, nullptr);

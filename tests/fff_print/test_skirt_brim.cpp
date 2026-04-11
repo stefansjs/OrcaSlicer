@@ -32,13 +32,13 @@ static int get_brim_tool(const std::string &gcode)
 TEST_CASE("Skirt height is honored", "[Skirt]") {
     DynamicPrintConfig config = Slic3r::DynamicPrintConfig::full_print_config();
     config.set_deserialize_strict({
-    	{ "skirts",					1 },
-    	{ "skirt_height", 			5 },
-    	{ "perimeters", 			0 },
-    	{ "support_material_speed", 99 },
+    	{ "skirt_loops",				1 },
+    	{ "skirt_height", 				5 },
+    	{ "wall_loops", 				0 },
+    	{ "support_material_speed", 	99 },
 		// avoid altering speeds unexpectedly
-    	{ "cooling", 				false },
-    	{ "first_layer_speed", 		"100%" }
+    	{ "cooling", 					false },
+    	{ "initial_layer_speed", 		"100%" }
     });
 
 	std::string gcode;
@@ -66,21 +66,21 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
 		config.set_num_extruders(4);
 		config.set_deserialize_strict({
 			{ "support_material_speed", 		99 },
-			{ "first_layer_height", 			0.3 },
+			{ "initial_layer_print_height", 	0.3 },
         	{ "gcode_comments", 				true },
         	// avoid altering speeds unexpectedly
         	{ "cooling", 						false },
-        	{ "first_layer_speed", 				"100%" },
+        	{ "initial_layer_speed", 			"100%" },
         	// remove noise from top/solid layers
-        	{ "top_solid_layers", 				0 },
-        	{ "bottom_solid_layers", 			1 },
+        	{ "top_shell_layers", 				0 },
+        	{ "bottom_shell_layers", 			1 },
 			{ "start_gcode",					"T[initial_tool]\n" }
         });
 
         WHEN("Brim width is set to 5") {
         	config.set_deserialize_strict({
-				{ "perimeters", 		0 },
-				{ "skirts", 			0 },
+				{ "wall_loops", 		0 },
+				{ "skirt_loops", 		0 },
 				{ "brim_width", 		5 }
 			});
 			THEN("Brim is generated") {
@@ -101,8 +101,8 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
 
         WHEN("Skirt area is smaller than the brim") {
             config.set_deserialize_strict({
-            	{ "skirts", 	1 },
-            	{ "brim_width", 10}
+            	{ "skirt_loops", 	1 },
+            	{ "brim_width", 	10}
             });
             THEN("Gcode generates") {
                 REQUIRE(! Slic3r::Test::slice({TestMesh::cube_20x20x20}, config).empty());
@@ -111,8 +111,8 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
 
         WHEN("Skirt height is 0 and skirts > 0") {
             config.set_deserialize_strict({
-            	{ "skirts", 	  2 },
-            	{ "skirt_height", 0 }
+            	{ "skirt_loops", 	2 },
+            	{ "skirt_height", 	0 }
             });
             THEN("Gcode generates") {
                 REQUIRE(! Slic3r::Test::slice({TestMesh::cube_20x20x20}, config).empty());
@@ -154,9 +154,9 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
 
         WHEN("brim width to 1 with layer_width of 0.5") {
         	config.set_deserialize_strict({
-				{ "skirts", 						0 },
-				{ "first_layer_extrusion_width", 	0.5 },
-				{ "brim_width", 					1 }
+				{ "skirt_loops", 				0 },
+				{ "initial_layer_line_width", 	0.5 },
+				{ "brim_width", 				1 }
         	});			
             THEN("2 brim lines") {
 		        Slic3r::Print print;
@@ -173,7 +173,7 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
         WHEN("brim ears on a square") {
 			config.set_deserialize_strict({
 				{ "skirts",							0 },
-				{ "first_layer_extrusion_width",	0.5 },
+				{ "initial_layer_line_width",	0.5 },
 				{ "brim_width",						1 },
 				{ "brim_ears",						1 },
 				{ "brim_ears_max_angle",			91 }
@@ -188,7 +188,7 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
         WHEN("brim ears on a square but with a too small max angle") {
 			config.set_deserialize_strict({
 				{ "skirts",							0 },
-				{ "first_layer_extrusion_width",	0.5 },
+				{ "initial_layer_line_width",	0.5 },
 				{ "brim_width",						1 },
 				{ "brim_ears",						1 },
 				{ "brim_ears_max_angle",			89 }
@@ -204,15 +204,15 @@ SCENARIO("Original Slic3r Skirt/Brim tests", "[SkirtBrim]") {
         WHEN("Object is plated with overhang support and a brim") {
         	config.set_deserialize_strict({
 	            { "layer_height", 				0.4 },
-	            { "first_layer_height", 		0.4 },
-	            { "skirts", 					1 },
+	            { "initial_layer_print_height",	0.4 },
+	            { "skirt_loops", 				1 },
 	            { "skirt_distance", 			0 },
 	            { "support_material_speed", 	99 },
 	            { "perimeter_extruder", 		1 },
 	            { "support_material_extruder", 	2 },
 	            { "infill_extruder", 			3 },			// ensure that a tool command gets emitted.
 	            { "cooling", 					false },		// to prevent speeds to be altered
-	            { "first_layer_speed", 			"100%" },		// to prevent speeds to be altered
+	            { "initial_layer_speed", 		"100%" },		// to prevent speeds to be altered
 				{ "start_gcode",				"T[initial_tool]\n" }
         	});
 

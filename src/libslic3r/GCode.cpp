@@ -1594,7 +1594,7 @@ void GCode::do_export(Print* print, const char* path, GCodeProcessorResult* resu
     BOOST_LOG_TRIVIAL(info) << "Exporting G-code finished" << log_memory_info();
     print->set_done(psGCodeExport);
     
-    if(is_BBL_Printer())
+    if(is_BBL_Printer() && result != nullptr)
         result->label_object_enabled = m_enable_exclude_object;
 
     // Write the profiler measurements to file
@@ -2657,7 +2657,7 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
         config.set_key_value("max_layer_z", new ConfigOptionFloat(m_max_layer_z));
         if (print.config().single_extruder_multi_material) {
             // Process the filament_end_gcode for the active filament only.
-            int extruder_id = m_writer.extruder()->id();
+            int extruder_id = m_writer.extruder() != nullptr ? m_writer.extruder()->id() : 0;
             config.set_key_value("filament_extruder_id", new ConfigOptionInt(extruder_id));
             file.writeln(this->placeholder_parser_process("filament_end_gcode", print.config().filament_end_gcode.get_at(extruder_id), extruder_id, &config));
         } else {
@@ -2667,7 +2667,8 @@ void GCode::_do_export(Print& print, GCodeOutputStream &file, ThumbnailsGenerato
                 file.writeln(this->placeholder_parser_process("filament_end_gcode", end_gcode, extruder_id, &config));
             }
         }
-        file.writeln(this->placeholder_parser_process("machine_end_gcode", print.config().machine_end_gcode, m_writer.extruder()->id(), &config));
+        int end_gcode_extruder_id = m_writer.extruder() != nullptr ? m_writer.extruder()->id() : 0;
+        file.writeln(this->placeholder_parser_process("machine_end_gcode", print.config().machine_end_gcode, end_gcode_extruder_id, &config));
     }
     file.write(m_writer.update_progress(m_layer_count, m_layer_count, true)); // 100%
     file.write(m_writer.postamble());
@@ -5883,7 +5884,10 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
             if (m_enable_cooling_markers) {
                 if (enable_overhang_bridge_fan) {
                     cur_fan_enabled = check_overhang_fan(processed_point.overlap, path.role());
-                    append_role_based_fan_marker(erOverhangPerimeter, "_OVERHANG"sv, pre_fan_enabled && cur_fan_enabled);
+                    // ORCA: Apply overhang fan marker for overhang perimeters and bridges (erBridgeInfill uses bridge flow but the same fan speed as overhangs in this PR)
+                    append_role_based_fan_marker(erOverhangPerimeter, "_OVERHANG"sv,
+                                                 pre_fan_enabled && cur_fan_enabled &&
+                                                 (path.role() == erOverhangPerimeter || path.role() == erBridgeInfill));
                     pre_fan_enabled = cur_fan_enabled;
 
                     // ORCA: Add support for separate internal bridge fan speed control

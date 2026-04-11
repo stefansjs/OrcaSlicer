@@ -79,7 +79,7 @@ struct SupportParameters {
         bridge_flow_ratio /= object.num_printing_regions();
 
         this->support_material_bottom_interface_flow = slicing_params.soluble_interface || !object_config.thick_bridges ?
-            this->support_material_interface_flow.with_flow_ratio(bridge_flow_ratio) :
+            this->support_material_interface_flow.with_flow_ratio(bridge_flow_ratio).with_bridge(true) :
             Flow::bridging_flow(bridge_flow_ratio * this->support_material_interface_flow.nozzle_diameter(), this->support_material_interface_flow.nozzle_diameter());
         
         this->can_merge_support_regions = object_config.support_filament.value == object_config.support_interface_filament.value;

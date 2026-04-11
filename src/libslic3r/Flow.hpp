@@ -90,12 +90,13 @@ public:
         return this->mm3_per_mm() < rhs.mm3_per_mm();
     }
     Flow        with_width (float width)  const { 
-        assert(! m_bridge); 
-        return Flow(width, m_height, rounded_rectangle_extrusion_spacing(width, m_height), m_nozzle_diameter, m_bridge);
+        return Flow(width, m_height, m_bridge ? m_spacing : rounded_rectangle_extrusion_spacing(width, m_height), m_nozzle_diameter, m_bridge);
     }
     Flow        with_height(float height) const { 
-        assert(! m_bridge); 
-        return Flow(m_width, height, rounded_rectangle_extrusion_spacing(m_width, height), m_nozzle_diameter, m_bridge);
+        return Flow(m_width, height, m_bridge ? m_spacing : rounded_rectangle_extrusion_spacing(m_width, height), m_nozzle_diameter, m_bridge);
+    }
+    Flow        with_bridge(bool bridge) const {
+        return Flow(m_width, m_height, m_spacing, m_nozzle_diameter, bridge);
     }
     // Adjust extrusion flow for new extrusion line spacing, maintaining the old spacing between extrusions.
     Flow        with_spacing(float spacing) const;

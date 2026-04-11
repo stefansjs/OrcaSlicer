@@ -12,11 +12,17 @@ add_executable(${_TEST_NAME}_tests
 	test_print.cpp
 	test_printgcode.cpp
 	test_printobject.cpp
+	test_bridge.cpp
+	test_bridge_perimeter_fan.cpp
+	test_extra_bridge_fan.cpp
 	test_skirt_brim.cpp
 	test_support_material.cpp
 	test_trianglemesh.cpp
 	)
-target_link_libraries(${_TEST_NAME}_tests test_common libslic3r)
+target_link_libraries(${_TEST_NAME}_tests test_common libslic3r OpenSSL::Crypto)
+if (WIN32)
+    target_link_libraries(${_TEST_NAME}_tests bcrypt)
+endif()
 set_property(TARGET ${_TEST_NAME}_tests PROPERTY FOLDER "tests")
 
 if (WIN32)
