@@ -28,6 +28,7 @@ SCENARIO("Extra bridging layers use correct fan speed for perimeters", "[FanSpee
             { "gcode_comments", true },
             { "cooling", true },
             { "enable_overhang_bridge_fan", true },
+            { "external_bridge_fan_speed", 40 },
             { "overhang_fan_speed", 100 },
             { "enable_extra_bridge_layer", "apply_to_all" },
             { "sparse_infill_density", 0 },

@@ -28,6 +28,7 @@ SCENARIO("Bridge outer perimeters are treated as bridges for fan control", "[Fan
             { "gcode_comments", true },
             { "cooling", true },
             { "enable_overhang_bridge_fan", true },
+            { "external_bridge_fan_speed", 40 },
             { "overhang_fan_speed", 100 },
             { "sparse_infill_density", 0 },
             { "top_shell_layers", 0 },

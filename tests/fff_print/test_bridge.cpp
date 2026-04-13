@@ -191,31 +191,30 @@ SCENARIO("Bridge speed is applied in G-code", "[Bridge][Speed]")
 
         WHEN("Parsing the G-code for bridge extrusions")
         {
-            // OrcaSlicer emits role tags before bridge extrusion moves. The format
-            // depends on printer type: ";TYPE:Bridge" for compatible printers or
-            // "; FEATURE: Bridge" for BBL printers.  Accept either.
-            auto is_bridge_role_tag = [](const std::string &raw) {
-                return raw.find("TYPE:Bridge") != std::string::npos ||
-                       raw.find("FEATURE: Bridge") != std::string::npos;
-            };
-            auto is_any_role_tag = [](const std::string &raw) {
-                return raw.find("TYPE:") != std::string::npos ||
-                       raw.find("FEATURE: ") != std::string::npos;
-            };
-
+            // OrcaSlicer emits role tags like ";TYPE:Bridge" before bridge
+            // extrusion moves.  Track the current role and check F values on
+            // extrusion moves that follow a bridge role tag.
             double expected_f = bridge_speed_mm_s * 60.0; // mm/min
             bool found_bridge_line = false;
             bool bridge_speed_correct = true;
             bool in_bridge_section = false;
 
+            auto is_bridge_role_tag_4 = [](const std::string &raw) {
+                return raw.find("TYPE:Bridge") != std::string::npos ||
+                       raw.find("FEATURE: Bridge") != std::string::npos;
+            };
+            auto is_any_role_tag_4 = [](const std::string &raw) {
+                return raw.find("TYPE:") != std::string::npos ||
+                       raw.find("FEATURE: ") != std::string::npos;
+            };
             GCodeReader reader;
             reader.parse_buffer(gcode,
                 [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
                     std::string raw = line.raw();
-                    // Track role changes via TYPE / FEATURE tags
-                    if (is_bridge_role_tag(raw)) {
+                    // Track role changes via TYPE/FEATURE tags (BBL and compatible printers)
+                    if (is_bridge_role_tag_4(raw)) {
                         in_bridge_section = true;
-                    } else if (is_any_role_tag(raw) && !is_bridge_role_tag(raw)) {
+                    } else if (is_any_role_tag_4(raw) && !is_bridge_role_tag_4(raw)) {
                         in_bridge_section = false;
                     }
                     // Check extrusion moves within bridge sections
@@ -274,11 +273,11 @@ SCENARIO("Bridge flow is applied correctly", "[Bridge][Flow]")
             int bridge_count = 0;
             bool in_bridge_section = false;
 
-            auto is_bridge_role_tag = [](const std::string &raw) {
+            auto is_bridge_role_tag_5 = [](const std::string &raw) {
                 return raw.find("TYPE:Bridge") != std::string::npos ||
                        raw.find("FEATURE: Bridge") != std::string::npos;
             };
-            auto is_any_role_tag = [](const std::string &raw) {
+            auto is_any_role_tag_5 = [](const std::string &raw) {
                 return raw.find("TYPE:") != std::string::npos ||
                        raw.find("FEATURE: ") != std::string::npos;
             };
@@ -287,9 +286,9 @@ SCENARIO("Bridge flow is applied correctly", "[Bridge][Flow]")
                 [&](GCodeReader &self, const GCodeReader::GCodeLine &line) {
                     std::string raw = line.raw();
                     // Track role changes via TYPE/FEATURE tags (BBL and compatible printers)
-                    if (is_bridge_role_tag(raw)) {
+                    if (is_bridge_role_tag_5(raw)) {
                         in_bridge_section = true;
-                    } else if (is_any_role_tag(raw) && !is_bridge_role_tag(raw)) {
+                    } else if (is_any_role_tag_5(raw) && !is_bridge_role_tag_5(raw)) {
                         in_bridge_section = false;
                     }
                     if (in_bridge_section &&
@@ -323,7 +322,7 @@ SCENARIO("Bridge flow is applied correctly", "[Bridge][Flow]")
 
 SCENARIO("Bridge fan speed markers in G-code", "[Bridge][FanSpeed]")
 {
-    GIVEN("A bridge mesh sliced with overhang_fan_speed=40")
+    GIVEN("A bridge mesh sliced with external_bridge_fan_speed=40")
     {
         TriangleMesh bridge_mesh = Slic3r::Test::mesh(TestMesh::bridge);
         bridge_mesh.align_to_origin();
@@ -334,7 +333,7 @@ SCENARIO("Bridge fan speed markers in G-code", "[Bridge][FanSpeed]")
             { "gcode_comments",            true },
             { "cooling",                   true },
             { "enable_overhang_bridge_fan", true },
-            { "overhang_fan_speed",        40 },
+            { "external_bridge_fan_speed", 40 },
             { "bottom_shell_layers",       1 },
             { "top_shell_layers",          0 },
             { "sparse_infill_density",     0 },
@@ -345,10 +344,11 @@ SCENARIO("Bridge fan speed markers in G-code", "[Bridge][FanSpeed]")
             // Raw fan markers (;_EXTERNAL_BRIDGE_FAN_START/END) are consumed
             // by CoolingBuffer and replaced with M106 commands.  Instead,
             // verify the gcode contains bridge role tags and M106 commands.
-            bool has_bridge_role_tag = gcode.find("TYPE:Bridge") != std::string::npos;
+            bool has_bridge_role_tag = gcode.find("TYPE:Bridge") != std::string::npos ||
+                                       gcode.find("FEATURE: Bridge") != std::string::npos;
             bool has_m106            = gcode.find("M106 S") != std::string::npos;
 
-            THEN("G-code contains TYPE:Bridge role tag")
+            THEN("G-code contains bridge role tag")
             {
                 REQUIRE(has_bridge_role_tag);
             }
@@ -553,7 +553,7 @@ SCENARIO("Extra bridge layer speed and fan in G-code", "[Bridge][ExtraBridge][GC
             { "gcode_comments",            true },
             { "cooling",                   true },
             { "enable_overhang_bridge_fan", true },
-            { "overhang_fan_speed",        40 },
+            { "external_bridge_fan_speed", 40 },
             { "bottom_shell_layers",       1 },
             { "top_shell_layers",          0 },
             { "sparse_infill_density",     0 },
@@ -588,7 +588,7 @@ SCENARIO("Extra bridge layer speed and fan in G-code", "[Bridge][ExtraBridge][GC
 
             THEN("There are multiple bridge fan start markers (base + extra layer)")
             {
-                INFO("TYPE:Bridge tag count: " << bridge_tag_count);
+                INFO("Bridge role tag count: " << bridge_tag_count);
                 // With extra bridge layer enabled, we expect at least 1 bridge tag.
                 // When extra layer perimeter promotion is working, expect >= 2.
                 CHECK(bridge_tag_count >= 1);

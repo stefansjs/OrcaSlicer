@@ -955,10 +955,22 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(new ConfigOptionBools{ true });
 
     def = this->add("overhang_fan_speed", coInts);
-    def->label = L("Overhangs and external bridges fan speed");
-    def->tooltip = L("Use this part cooling fan speed when printing bridges or overhang walls with an overhang threshold that exceeds "
+    def->label = L("Overhangs fan speed");
+    def->tooltip = L("Use this part cooling fan speed when printing overhang walls with an overhang threshold that exceeds "
                      "the value set in the 'Overhangs cooling threshold' parameter above. Increasing the cooling specifically for overhangs "
-                     "and bridges can improve the overall print quality of these features.\n\n"
+                     "can improve the overall print quality of these features.\n\n"
+                     "Please note, this fan speed is clamped on the lower end by the minimum fan speed threshold set above. It is also adjusted "
+                     "upwards up to the maximum fan speed threshold when the minimum layer time threshold is not met.");
+    def->sidetext = "%";
+    def->min = 0;
+    def->max = 100;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInts { 100 });
+
+    def = this->add("external_bridge_fan_speed", coInts);
+    def->label = L("External bridges fan speed");
+    def->tooltip = L("Use this part cooling fan speed when printing external bridges. Increasing or decreasing the cooling specifically "
+                     "for external bridges can improve the overall print quality of these features.\n\n"
                      "Please note, this fan speed is clamped on the lower end by the minimum fan speed threshold set above. It is also adjusted "
                      "upwards up to the maximum fan speed threshold when the minimum layer time threshold is not met.");
     def->sidetext = "%";
